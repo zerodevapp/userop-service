@@ -1,60 +1,88 @@
 import type { Request, Response } from 'express';
-import { createEcdsaKernelAccountClient } from '@kerneljs/presets/zerodev';
 import type { GetAddressRequest, CreateUserOpRequest, SendUserOpRequest } from './types';
 import { http } from 'viem';
 import { ensureEnvVariables } from './utils';
-import {
-    createKernelPaymasterClient,
-} from "@kerneljs/core";
 import { getChainFromId, createNullSmartAccountSigner } from './utils';
-import type { SmartAccountClient, UserOperation } from "permissionless"
+import {
+    KERNEL_ADDRESSES,
+    createKernelAccount,
+    createKernelPaymasterClient,
+} from "@kerneljs/core"
+import { signerToEcdsaValidator } from "@kerneljs/ecdsa-validator"
+import { createPublicClient } from "viem"
+import { prepareUserOperationRequest, type PrepareUserOperationRequestParameters } from 'permissionless/actions/smartAccount'
+import { sendUserOperation, createBundlerClient } from "permissionless";
 
+
+
+const BUNDLER_URL = process.env.BUNDLER_URL || '';
 const PAYMASTER_URL = process.env.PAYMASTER_URL || '';
 const ZERODEV_PROJECT_ID = process.env.ZERODEV_PROJECT_ID || '';
-const DEFAULT_CHAIN_ID = process.env.DEFAULT_CHAIN_ID ? parseInt(process.env.DEFAULT_CHAIN_ID) : 10;
 
-ensureEnvVariables(['ZERODEV_PROJECT_ID', 'PAYMASTER_URL', 'DEFAULT_CHAIN_ID']);
+ensureEnvVariables(['BUNDLER_URL', 'ZERODEV_PROJECT_ID', 'PAYMASTER_URL']);
 
 export async function getAddressHandler(req: Request, res: Response) {
     const { address, index }: GetAddressRequest = req.body;
-    const kernelClient = await createEcdsaKernelAccountClient({
-        chain: getChainFromId(DEFAULT_CHAIN_ID),
-        projectId: ZERODEV_PROJECT_ID,
-        signer: createNullSmartAccountSigner(address),
-        index: BigInt(index || 0),
-    });
 
-    res.json({ address: kernelClient.account });
+
+    const publicClient = createPublicClient({ transport: http(`${BUNDLER_URL}/${ZERODEV_PROJECT_ID}`) });
+
+    const signer = createNullSmartAccountSigner(address);
+
+    const ecdsaValidator = await signerToEcdsaValidator(publicClient, {
+        signer,
+    })
+
+    const account = await createKernelAccount(publicClient, {
+        plugin: ecdsaValidator,
+        index: BigInt(index || 0),
+    })
+
+    res.json({ address: account.address });
 }
 
+export async function createUserOpHandler(req: Request, res: Response): Promise<void> {
+    const { address, index, projectId, chainId, request, entryPoint }: CreateUserOpRequest = req.body;
+    ensureEnvVariables(['ZERODEV_PROJECT_ID']);
 
-// export async function createUserOpHandler(req: Request, res: Response): Promise<void> {
-//     const { address, projectId, chainId, executionType, request }: CreateUserOpRequest = req.body;
-//     ensureEnvVariables(['ZERODEV_PROJECT_ID']);
+    const signer = createNullSmartAccountSigner(address);
 
-//     const signer = createNullSmartAccountSigner(address);
-//     const kernelClient: SmartAccountClient = await createEcdsaKernelAccountClient({
-//         chain: getChainFromId(chainId),
-//         projectId,
-//         signer,
-//     });
- 
+    const publicClient = createPublicClient({ transport: http(`${BUNDLER_URL}/${projectId}`) });
 
-//     res.json({ userOp });
-// }
+    const ecdsaValidator = await signerToEcdsaValidator(publicClient, {
+        signer,
+        entryPoint: entryPoint || KERNEL_ADDRESSES.ENTRYPOINT_V0_6,
+    })
+
+    const account = await createKernelAccount(publicClient, {
+        plugin: ecdsaValidator,
+        index: BigInt(index || 0),
+    })
+    const kernelPaymasterClient = createKernelPaymasterClient({
+        chain: getChainFromId(chainId),
+        transport: http(`${PAYMASTER_URL}/${projectId}`),
+    })
+    const encodedCallData = await account.encodeCallData(request);
+    const prepareUserOperationRequestArgs: PrepareUserOperationRequestParameters = {
+        account,
+        userOperation: { callData: encodedCallData },
+    };
+    const preparedUserOperation = await prepareUserOperationRequest(publicClient, prepareUserOperationRequestArgs)
+    const sponsored = await kernelPaymasterClient.sponsorUserOperation({ userOperation: preparedUserOperation })
+
+    res.json({ userOperation: sponsored });
+}
 
 export async function sendUserOpHandler(req: Request, res: Response) {
-    const { userOp, projectId, chainId, waitTimeoutMs, waitIntervalMs, entryPoint }: SendUserOpRequest = req.body;
-    if (!projectId) {
-        return res.status(400).json({ error: 'Project ID is required' });
-    }
-    const signer = createNullSmartAccountSigner(userOp.sender);
-    const kernelClient = await createEcdsaKernelAccountClient({
+    const { userOperation, projectId, chainId, entryPoint }: SendUserOpRequest = req.body;
+    const bundlerClient = createBundlerClient({
         chain: getChainFromId(chainId),
-        projectId,
-        signer,
+        transport: http(`${BUNDLER_URL}/${projectId}`),
     });
-    const receipt = await kernelClient.sendUserOperation({ userOperation: userOp });
+    const userOpHash = await sendUserOperation(bundlerClient, {
+        userOperation,
+        entryPoint: entryPoint || KERNEL_ADDRESSES.ENTRYPOINT_V0_6,
+    });
 
-    res.json({ receipt });
+    res.json({ userOpHash });
 }

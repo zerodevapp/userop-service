@@ -1,22 +1,13 @@
-// import { getAddressHandler, createUserOpHandler, sendUserOpHandler } from '../handlers';
-import { getAddressHandler, sendUserOpHandler } from '../handlers';
+import { getAddressHandler, createUserOpHandler, sendUserOpHandler } from '../handlers';
+import { signUserOperationHashWithECDSA } from "permissionless/utils";
 import { describe, expect, it, beforeEach, jest } from 'bun:test';
 import { Request, Response } from 'express';
-import { encodeFunctionData } from 'viem';
+import { UserOperation } from 'permissionless';
+import { type Hex } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { KERNEL_ADDRESSES } from '@kerneljs/core';
 
-
-const abiItem = {
-    inputs: [{ name: 'to', type: 'address' }, { name: 'value', type: 'uint256' }, { name: 'data', type: 'bytes' }, { name: 'operation', type: 'uint8' }],
-    name: 'execute',
-    stateMutability: 'external',
-    type: 'function',
-}
-
-const encodedCallData = encodeFunctionData({
-    abi: [abiItem],
-    functionName: 'execute',
-    args: ['0xa6ea52EC5a01E92BCb83055d743a1aE9367988b8', BigInt(0), '0x', 0]
-});
+const privateKey: Hex = process.env.PRIVATE_KEY as `0x${string}` || '0x';
 
 describe('handlers', () => {
     let mockRequest: Partial<Request>;
@@ -34,76 +25,132 @@ describe('handlers', () => {
         });
         mockResponse = {
             status: mockStatus,
-            json: mockJson, 
+            json: mockJson,
 
         };
         mockRequest = {};
     });
 
     describe('getAddressHandler', () => {
-        it('should return address from getAddressHandler', async () => {
-            mockRequest.body = { address: '0xa6ea52EC5a01E92BCb83055d743a1aE9367988b8'};
+        it('should return correct address from getAddressHandler', async () => {
+            mockRequest.body = { address: '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266' };
             await getAddressHandler(mockRequest as Request, mockResponse as Response);
-            console.log(mockJson.mock.calls[0][0])
-            expect(mockJson).toHaveBeenCalledWith({ address: '0x4967ebd74567dE1b091b7833C2B1ef4447A583fD' });
+            expect(mockJson).toHaveBeenCalledWith({ address: '0xB2358b064F5eA10543Cf8034C8576b2E6Bfd3Be3' });
+        });
+
+        it('should return correct address with index from getAddressHandler', async () => {
+            mockRequest.body = { address: '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266', index: 10 };
+            await getAddressHandler(mockRequest as Request, mockResponse as Response);
+            expect(mockJson).toHaveBeenCalledWith({ address: '0xCA12337b576cC4B328a4Ac8F77E6326929660dc8' });
         });
     });
 
     describe('createUserOpHandler', () => {
         it('should create a user operation and return it', async () => {
-            const mockUserOp = {
-                callData: encodedCallData,
-                executionType: 'REGULAR',
-            };
             mockRequest.body = {
-                address: '0xa6ea52EC5a01E92BCb83055d743a1aE9367988b8',
+                address: '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266',
                 projectId: process.env.ZERODEV_PROJECT_ID,
-                chainId: 5,
-                executionType: 'REGULAR',
+                chainId: 80001,
                 request: {
-                    to: '0xa6ea52EC5a01E92BCb83055d743a1aE9367988b8',
+                    to: '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266',
                     value: BigInt(0),
                     data: '0x',
                 },
             };
             await createUserOpHandler(mockRequest as Request, mockResponse as Response);
-            expect(mockJson).toHaveBeenCalledWith({ userOp: expect.any(Object) });
+            expect(mockJson).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    userOperation: expect.objectContaining({
+                        sender: expect.any(String),
+                        nonce: expect.any(BigInt),
+                        initCode: expect.any(String),
+                        callData: expect.any(String),
+                        paymasterAndData: expect.any(String),
+                        signature: expect.any(String),
+                        maxFeePerGas: expect.any(BigInt),
+                        maxPriorityFeePerGas: expect.any(BigInt),
+                        callGasLimit: expect.any(BigInt),
+                        verificationGasLimit: expect.any(BigInt),
+                        preVerificationGas: expect.any(BigInt),
+
+                    })
+                })
+            );
+        });
+
+        it('should create a user operation out of batch request and return it', async () => {
+            mockRequest.body = {
+                address: '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266',
+                projectId: process.env.ZERODEV_PROJECT_ID,
+                chainId: 80001,
+                request: [{
+                    to: '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266',
+                    value: BigInt(0),
+                    data: '0x',
+                }, {
+                    to: '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266',
+                    value: BigInt(0),
+                    data: '0x',
+                }],
+            };
+            await createUserOpHandler(mockRequest as Request, mockResponse as Response);
+            expect(mockJson).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    userOperation: expect.objectContaining({
+                        sender: expect.any(String),
+                        nonce: expect.any(BigInt),
+                        initCode: expect.any(String),
+                        callData: expect.any(String),
+                        paymasterAndData: expect.any(String),
+                        signature: expect.any(String),
+                        maxFeePerGas: expect.any(BigInt),
+                        maxPriorityFeePerGas: expect.any(BigInt),
+                        callGasLimit: expect.any(BigInt),
+                        verificationGasLimit: expect.any(BigInt),
+                        preVerificationGas: expect.any(BigInt),
+
+                    })
+                })
+            );
         });
     });
 
     describe('sendUserOpHandler', () => {
         it('should send a user operation and return a receipt', async () => {
-            const mockReceipt = {
-                transactionHash: '0x123',
-            };
             mockRequest.body = {
-                userOp: {
-                    sender: '0x4967ebd74567dE1b091b7833C2B1ef4447A583fD',
-                    callData: encodedCallData,
-                },
+                address: '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266',
                 projectId: process.env.ZERODEV_PROJECT_ID,
                 chainId: 80001,
-                waitTimeoutMs: 1000,
-                waitIntervalMs: 100,
-            };
-            await sendUserOpHandler(mockRequest as Request, mockResponse as Response);
-            expect(mockJson).toHaveBeenCalledWith({ receipt: expect.any(Object) });
-        });
-
-        it('should return error if projectId is missing', async () => {
-            mockRequest.body = {
-                userOp: {
-                    sender: '0x4967ebd74567dE1b091b7833C2B1ef4447A583fD',
-                    callData: encodedCallData,
+                request: {
+                    to: '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266',
+                    value: BigInt(0),
+                    data: '0x',
                 },
-                chainId: 80001,
-                waitTimeoutMs: 1000,
-                waitIntervalMs: 100,
             };
-            await sendUserOpHandler(mockRequest as Request, mockResponse as Response);
-            expect(mockStatus).toHaveBeenCalledWith(400);
-            expect(mockJson).toHaveBeenCalledWith({ error: 'Project ID is required' });
+            await createUserOpHandler(mockRequest as Request, mockResponse as Response);
+            const userOperation: UserOperation = mockJson.mock.calls[0][0].userOperation;
 
+            const signer = privateKeyToAccount(privateKey);
+
+            userOperation.signature = '0x00000000' + (await signUserOperationHashWithECDSA({
+                account: signer,
+                userOperation,
+                entryPoint: KERNEL_ADDRESSES.ENTRYPOINT_V0_6,
+                chainId: 80001,
+
+            })).slice(2) as Hex;
+
+            mockRequest.body = {
+                userOperation,
+                projectId: process.env.ZERODEV_PROJECT_ID,
+                chainId: 80001,
+            };
+
+            await sendUserOpHandler(mockRequest as Request, mockResponse as Response);
+
+            expect(mockJson).toHaveBeenCalledWith(expect.objectContaining({
+                userOpHash: expect.any(String)
+            }));
         });
     });
 });

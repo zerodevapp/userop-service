@@ -6,16 +6,12 @@ export interface GetAddressRequest {
     index?: number;
 }
 
-export enum ExecutionType {
-    REGULAR = 'REGULAR',
-    BATCH = 'BATCH',
-}
-
 export interface CreateUserOpRequest {
     address: Address;
+    index?: number;
     projectId: string;
     chainId: number;
-    executionType: ExecutionType;
+    entryPoint?: Address;
     request: {
         to: Address;
         value: bigint;
@@ -28,10 +24,8 @@ export interface CreateUserOpRequest {
 }
 
 export interface SendUserOpRequest {
-    userOp: UserOperation;
+    userOperation: UserOperation;
     projectId: string;
     chainId: number;
-    waitTimeoutMs: number;
-    waitIntervalMs: number;
     entryPoint?: Address;
 }

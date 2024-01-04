@@ -14,15 +14,15 @@ This Express server provides an API for getting Kernel account addresses from th
 
 ## Environment Variables
 
-Create a `.env` file in the root of your project and define the following variables:
+Create a `.env` file in the root of your project.  You can copy the `.env.example` file.
 
 - `PORT`: The port the Express server will listen on.
-- `ZERODEV_PROJECT_ID`: Your ZeroDev project ID.
 - `BUNDLER_URL`: The ZeroDev Bundler URL.
 - `PAYMASTER_URL`: The ZeroDev Paymaster URL.
+- `ZERODEV_PROJECT_ID`: Your ZeroDev project ID, used for testing.
 - `PRIVATE_KEY`: Your private key, used only for testing when creating signed user operations in the `sendUserOpHandler` test.
 
-**Note:** The `PRIVATE_KEY` is strictly for testing purposes and should not be used in a production environment. The tests use a well-known private key for Ethereum address 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 for convenience of testing.
+**Note:** `ZERODEV_PROJECT_ID` and `PRIVATE_KEY` are used only for testing purposes. The tests use a well-known private key for Ethereum address 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 for convenience of testing.
 
 ## Running the Server
 

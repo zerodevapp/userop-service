@@ -40,6 +40,7 @@ Returns an address based on the provided request body. It requires the following
 
 - `address`: The address of the signer.
 - `index`: (Optional) The index of the account to use.
+- `projectId`: The project ID for the bundler service.
 
 ### `createUserOpHandler`
 

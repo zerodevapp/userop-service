@@ -17,15 +17,14 @@ import { sendUserOperation, createBundlerClient } from "permissionless";
 
 const BUNDLER_URL = process.env.BUNDLER_URL || '';
 const PAYMASTER_URL = process.env.PAYMASTER_URL || '';
-const ZERODEV_PROJECT_ID = process.env.ZERODEV_PROJECT_ID || '';
 
-ensureEnvVariables(['BUNDLER_URL', 'ZERODEV_PROJECT_ID', 'PAYMASTER_URL']);
+ensureEnvVariables(['BUNDLER_URL', 'PAYMASTER_URL']);
 
 export async function getAddressHandler(req: Request, res: Response) {
-    const { address, index }: GetAddressRequest = req.body;
+    const { address, index, projectId }: GetAddressRequest = req.body;
 
 
-    const publicClient = createPublicClient({ transport: http(`${BUNDLER_URL}/${ZERODEV_PROJECT_ID}`) });
+    const publicClient = createPublicClient({ transport: http(`${BUNDLER_URL}/${projectId}`) });
 
     const signer = createNullSmartAccountSigner(address);
 

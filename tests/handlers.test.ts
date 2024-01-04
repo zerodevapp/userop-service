@@ -8,6 +8,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { KERNEL_ADDRESSES } from '@kerneljs/core';
 
 const privateKey: Hex = process.env.PRIVATE_KEY as `0x${string}` || '0x';
+const projectId: string = process.env.ZERODEV_PROJECT_ID as string || '';
 
 describe('handlers', () => {
     let mockRequest: Partial<Request>;
@@ -33,13 +34,13 @@ describe('handlers', () => {
 
     describe('getAddressHandler', () => {
         it('should return correct address from getAddressHandler', async () => {
-            mockRequest.body = { address: '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266' };
+            mockRequest.body = { address: '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266', projectId };
             await getAddressHandler(mockRequest as Request, mockResponse as Response);
             expect(mockJson).toHaveBeenCalledWith({ address: '0xB2358b064F5eA10543Cf8034C8576b2E6Bfd3Be3' });
         });
 
         it('should return correct address with index from getAddressHandler', async () => {
-            mockRequest.body = { address: '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266', index: 10 };
+            mockRequest.body = { address: '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266', index: 10, projectId };
             await getAddressHandler(mockRequest as Request, mockResponse as Response);
             expect(mockJson).toHaveBeenCalledWith({ address: '0xCA12337b576cC4B328a4Ac8F77E6326929660dc8' });
         });

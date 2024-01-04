@@ -4,6 +4,7 @@ import type { UserOperation } from 'permissionless';
 export interface GetAddressRequest {
     address: Address;
     index?: number;
+    projectId: string;
 }
 
 export interface CreateUserOpRequest {

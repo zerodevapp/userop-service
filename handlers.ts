@@ -42,7 +42,6 @@ export async function getAddressHandler(req: Request, res: Response) {
 
 export async function createUserOpHandler(req: Request, res: Response): Promise<void> {
     const { address, index, projectId, chainId, request, entryPoint }: CreateUserOpRequest = req.body;
-    ensureEnvVariables(['ZERODEV_PROJECT_ID']);
 
     const signer = createNullSmartAccountSigner(address);
 

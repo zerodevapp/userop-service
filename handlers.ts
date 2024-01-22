@@ -11,7 +11,7 @@ import {
 import { signerToEcdsaValidator } from "@kerneljs/ecdsa-validator"
 import { createPublicClient } from "viem"
 import { prepareUserOperationRequest, type PrepareUserOperationRequestParameters } from 'permissionless/actions/smartAccount'
-import { sendUserOperation, createBundlerClient } from "permissionless";
+import { sendUserOperation, createBundlerClient, getUserOperationHash } from "permissionless";
 
 
 
@@ -68,7 +68,20 @@ export async function createUserOpHandler(req: Request, res: Response): Promise<
     const preparedUserOperation = await prepareUserOperationRequest(publicClient, prepareUserOperationRequestArgs)
     const sponsored = await kernelPaymasterClient.sponsorUserOperation({ userOperation: preparedUserOperation })
 
-    res.json({ userOperation: sponsored });
+    const hash = getUserOperationHash({
+        userOperation: {
+            ...sponsored,
+            signature: "0x"
+        },
+        entryPoint: entryPoint || KERNEL_ADDRESSES.ENTRYPOINT_V0_6,
+        chainId: chainId
+    });
+
+    const userOpJson = JSON.stringify(sponsored, (key, value) =>
+        typeof value === 'bigint' ? value.toString() : value
+    );
+
+    res.json({ userOperation: userOpJson, userOpHash: hash });
 }
 
 export async function sendUserOpHandler(req: Request, res: Response) {

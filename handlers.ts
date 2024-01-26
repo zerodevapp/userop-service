@@ -4,7 +4,7 @@ import type {
     CreateUserOpRequest,
     SendUserOpRequest,
 } from './types';
-import { http } from 'viem';
+import { http, toHex } from 'viem';
 import { ensureEnvVariables } from './utils';
 import { getChainFromId, createNullSmartAccountSigner } from './utils';
 import {
@@ -22,6 +22,7 @@ import {
     sendUserOperation,
     createBundlerClient,
     getUserOperationHash,
+    deepHexlify,
 } from 'permissionless';
 
 const BUNDLER_URL = process.env.BUNDLER_URL || '';
@@ -63,7 +64,6 @@ export async function createUserOpHandler(
         chainId,
         request,
         entryPoint,
-        sponsored,
     }: CreateUserOpRequest = req.body;
 
     const signer = createNullSmartAccountSigner(address);
@@ -93,20 +93,20 @@ export async function createUserOpHandler(
         publicClient,
         prepareUserOperationRequestArgs
     );
-    if (sponsored) {
-        const kernelPaymasterClient = createZeroDevPaymasterClient({
-            chain: getChainFromId(chainId),
-            transport: http(`${PAYMASTER_URL}/${projectId}`),
-        });
+    const kernelPaymasterClient = createZeroDevPaymasterClient({
+        chain: getChainFromId(chainId),
+        transport: http(`${PAYMASTER_URL}/${projectId}`),
+    });
+    try {
         preparedUserOperation =
             await kernelPaymasterClient.sponsorUserOperation({
                 userOperation: preparedUserOperation,
             });
-    }
+    } catch (error) {}
 
     const hash = getUserOperationHash({
         userOperation: {
-            ...preparedUserOperation,
+            ...deepHexlify(preparedUserOperation),
             signature: '0x',
         },
         entryPoint: entryPoint || KERNEL_ADDRESSES.ENTRYPOINT_V0_6,
@@ -114,10 +114,10 @@ export async function createUserOpHandler(
     });
 
     const userOpJson = JSON.stringify(preparedUserOperation, (key, value) =>
-        typeof value === 'bigint' ? value.toString() : value
+        typeof value === 'bigint' ? toHex(value) : value
     );
 
-    res.json({ userOperation: userOpJson, userOpHash: hash });
+    res.json({ userOperation: preparedUserOperation, userOpHash: hash });
 }
 
 export async function sendUserOpHandler(req: Request, res: Response) {

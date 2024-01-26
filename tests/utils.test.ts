@@ -1,8 +1,13 @@
-import { ensureEnvVariables, getChainFromId, createNullSmartAccountSigner } from '../utils';
+import {
+    ensureEnvVariables,
+    getChainFromId,
+    createNullSmartAccountSigner,
+} from '../utils';
 import { describe, expect, it } from 'bun:test';
 import * as allChains from 'viem/chains';
 import type { Chain } from 'viem';
 import { zeroAddress } from 'viem';
+import { SignTransactionNotSupportedBySmartAccount } from 'permissionless/accounts';
 
 describe('utils', () => {
     describe('ensureEnvVariables', () => {
@@ -13,7 +18,9 @@ describe('utils', () => {
 
         it('should throw an error if any environment variable is not set', () => {
             delete process.env.TEST_VAR;
-            expect(() => ensureEnvVariables(['TEST_VAR'])).toThrow('Missing environment variables: TEST_VAR');
+            expect(() => ensureEnvVariables(['TEST_VAR'])).toThrow(
+                'Missing environment variables: TEST_VAR'
+            );
         });
     });
 
@@ -26,7 +33,9 @@ describe('utils', () => {
 
         it('should throw an error if the chain id is not found', () => {
             const invalidChainId = 9999;
-            expect(() => getChainFromId(invalidChainId)).toThrow(`Chain with id ${invalidChainId} not found`);
+            expect(() => getChainFromId(invalidChainId)).toThrow(
+                `Chain with id ${invalidChainId} not found`
+            );
         });
     });
 
@@ -39,32 +48,49 @@ describe('utils', () => {
 
         it('should throw an error when trying to sign a message', async () => {
             const signer = createNullSmartAccountSigner('0x123');
-            await expect(signer.signMessage({ message: 'hello world' })).rejects.toThrow('Sign message not supported');
+            let errMsg = '';
+            try {
+                await signer.signMessage({ message: 'hello world' });
+            } catch (error: any) {
+                errMsg = error.message;
+            }
+            return expect(errMsg).toBe('Sign message not supported');
         });
 
         it('should throw an error when trying to sign typed data', async () => {
             const signer = createNullSmartAccountSigner('0x123');
             const domain = {
                 chainId: 1,
-                name: "Test",
-                verifyingContract: zeroAddress
-            }
+                name: 'Test',
+                verifyingContract: zeroAddress,
+            };
 
-            const primaryType = "Test"
+            const primaryType = 'Test';
 
             const types = {
                 Test: [
                     {
-                        name: "test",
-                        type: "string"
-                    }
-                ]
-            }
+                        name: 'test',
+                        type: 'string',
+                    },
+                ],
+            };
 
             const message = {
-                test: "hello world"
+                test: 'hello world',
+            };
+            let errMsg = '';
+            try {
+                await signer.signTypedData({
+                    domain,
+                    primaryType,
+                    types,
+                    message,
+                });
+            } catch (error: any) {
+                errMsg = error.message;
             }
-            await expect(signer.signTypedData({ domain, primaryType, types, message })).rejects.toThrow('Sign typed data not supported');
+            expect(errMsg).toBe('Sign typed data not supported');
         });
     });
 });

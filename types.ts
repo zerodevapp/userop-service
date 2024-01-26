@@ -13,16 +13,17 @@ export interface CreateUserOpRequest {
     projectId: string;
     chainId: number;
     entryPoint?: Address;
-    request: {
-        to: Address;
-        value: bigint;
-        data: Hex;
-    } | Array<{
-        to: Address;
-        value: bigint;
-        data: Hex;
-    }>;
-    sponsored?: boolean;
+    request:
+        | {
+              to: Address;
+              value: bigint;
+              data: Hex;
+          }
+        | Array<{
+              to: Address;
+              value: bigint;
+              data: Hex;
+          }>;
 }
 
 export interface SendUserOpRequest {

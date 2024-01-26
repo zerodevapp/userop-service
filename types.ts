@@ -22,6 +22,7 @@ export interface CreateUserOpRequest {
         value: bigint;
         data: Hex;
     }>;
+    sponsored?: boolean;
 }
 
 export interface SendUserOpRequest {

@@ -5,7 +5,7 @@ import { Request, Response } from 'express';
 import { UserOperation } from 'permissionless';
 import { type Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { KERNEL_ADDRESSES } from '@kerneljs/core';
+import { KERNEL_ADDRESSES } from '@zerodev/sdk';
 
 const privateKey: Hex = process.env.PRIVATE_KEY as `0x${string}` || '0x';
 const projectId: string = process.env.ZERODEV_PROJECT_ID as string || '';
